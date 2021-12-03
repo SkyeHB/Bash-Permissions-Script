@@ -1,0 +1,279 @@
+#    Family Name:	Bragg
+#     Given Name:	Skye
+#           Date:	August 04, 2021
+
+#!/bin/bash
+
+input=$1
+if  [ "$1" = ".." ];
+then
+	input=$(cd .. ; pwd)
+	fulldir=$(echo $input | tr / " " )
+elif [ "$#" -lt 1 ]
+	then
+	input=$(pwd)
+	fulldir=$(echo $input | tr / " " )
+else
+	clean=$(echo $input | sed 's:.*/::')
+	fulldir=$(find ~+ -type d -name $clean | tr / " ")
+fi
+
+
+clear
+cursorHor=27
+cursorVert=0
+
+#options via keypress
+while true;
+do
+	clear
+
+	x=""
+	cnt=1
+
+	if [ "$#" -gt 1 ]
+		then
+			if [ -d "$1" ] || [ -d "$2" ]
+			then
+				echo "Usage: showDir [ dir-name ]"
+				exit 1
+			fi
+	exit 1
+
+	#search all
+	elif [ -d $1 ];	
+	then
+		echo "  Owner	  Group	  Other	   Filename"
+		echo "  ----	  ----	  ----	   ------" 
+		ls -ld / | grep "^d"  | cut -d " " -f 1,10  | tr . " " | sed -r 's/(.)(.)(.)(.)/\1 \2 \3 \4\t  /' | sed -r 's/(...........)(.)(.)/\1 \2 \3\t  /' | sed -r 's/(...................)(.)(.)/\1 \2 \3\t /' 
+		
+		#Outputs the directory information for root formatted to be user readable
+		if [ $cursorVert -eq 2 ]	
+		then
+			tput smam
+			ls -ld / | awk  '{print "Links: " $2  "  Owner: " $3 " Group: " $4 "  Size: " $5 "  Modified: " $6 " " $7 " " $8}'
+			tput rmam
+		fi	
+	
+		i=3
+		for value in $fulldir
+		do
+			let "cnt+=1"
+			x="$x/$value"
+			if ls -ld $x | grep -q ".........-" 
+			then
+				tput smso
+			fi
+	
+ 			ls -ld $x | grep "^d"  | cut -d " " -f 1 | sed -r 's/(.)(.)(.)(.)/\1 \2 \3 \4\t  /' | sed -r 's/(...........)(.)(.)/\1 \2 \3\t  /' | sed -r "s/(...................)(.)(.)/\1 \2 \3\t   $value/" 
+			tput rmso
+			
+			#Outputs the directory infromation formatted to be user readable
+			if [ $cursorVert = $i ]
+			then
+				tput smam
+				ls -ld $x | awk  '{print "Links: " $2  "  Owner: " $3 " Group: " $4 "  Size: " $5 "  Modified: " $6 " " $7 " " $8}'
+				tput rmam		
+			fi
+
+			let "i+=1"
+		done
+
+	#Sets initial ls -ld data for default cursor position
+	if [ $cursorVert -eq 0 ]
+	then
+		cursorVert=$((cnt+1))
+
+		#removes highlighting
+		tput rmso
+		#re endabled line wrapping
+		tput smam
+
+		ls -ld $x | awk  '{print "Links: " $2  "  Owner: " $3 " Group: " $4 "  Size: " $5 "  Modified: " $6 " " $7 " " $8}'
+
+		tput rmam
+	fi
+	
+	#Outputting the directions of use for the user. 
+	tput smam
+	echo " "
+	echo " "
+	echo " "
+	echo " "
+	echo "Valid Keys: k (up), j (down), : move between Dir_Names"
+	echo "		  h (left), l (right): move between permissions"
+	echo "		  r, w, x, -,: change permission;"
+	echo "q: quit"	
+	tput rmam
+	
+	#sets base position of cursor
+	tput cup $cursorVert $cursorHor
+	tput rmso
+	
+	#waits for user key press
+	read -rs -n1 key
+
+	#all options adjust cursor position if the appropriate key is pressed
+	if [ "$key" = "q" ] 
+	then
+		clear
+		tput smam
+		exit 1
+	elif [ "$key" = "k" ]
+	then
+		if [ $cursorVert -gt 2 ]
+		then
+			tput cuu1
+			let "cursorVert-=1"
+		fi
+	elif [ "$key" = "j" ]
+	then
+		if [ $cursorVert -le $cnt ]
+		then
+			tput cud1
+			let "cursorVert+=1"
+			tput cup $cursorVert $cursorHor
+		fi
+	elif [ "$key" = "l" ]
+	then
+		if [ $cursorHor -le 26 ]
+		then
+			tput cuf1
+			let "cursorHor+=1"
+		fi
+	elif [ "$key" = "h" ]
+	then
+		if [ $cursorHor -gt 2 ]
+		then
+			tput cub1
+			let "cursorHor-=1"
+		fi
+	elif [ "$key" = "r" ]
+	then
+		linePos=$((cursorVert-2))
+		var=1
+		y=""
+		
+		#loops through list of directory names, combines it with the rest of its full path
+		#when the line position matches it changes the permissions for the appropriate file.
+		for val in $fulldir
+		do	
+			y=$y/$val
+			if [ $linePos = $var ]
+			then
+				if [ $cursorHor = 2 ]
+				then
+					chmod u+r $y &> /dev/null
+				elif [ $cursorHor = 10 ]
+				then
+					chmod g+r $y &> /dev/null
+				elif [ $cursorHor = 18 ]
+				then
+					chmod o+r $y &> /dev/null
+				fi	
+			fi
+
+			let "var+=1"
+		done
+
+	elif [ "$key" = "w" ]
+	then
+		linePos=$((cursorVert-2))
+		var=1
+		y=""
+	
+		for val in $fulldir
+		do	
+			y=$y/$val
+			if [ $linePos = $var ]
+			then
+				if [ $cursorHor = 4 ]
+				then
+					chmod u+w $y &> /dev/null
+				elif [ $cursorHor = 12 ]
+				then
+					chmod g+w $y &> /dev/null
+				elif [ $cursorHor = 20 ]
+				then
+					chmod o+w $y &> /dev/null
+				fi	
+			fi
+
+			let "var+=1"
+		done
+	elif [ "$key" = "x" ]
+	then
+		linePos=$((cursorVert-2))
+		var=1
+		y=""	
+		for val in $fulldir
+		do	
+			y=$y/$val
+
+			if [ $linePos = $var ]
+			then
+				if [ $cursorHor = 6 ]
+				then
+					chmod u+x $y &> /dev/null
+				elif [ $cursorHor = 14 ]
+				then
+					chmod g+x $y &> /dev/null
+				elif [ $cursorHor = 22 ]
+				then
+					chmod o+x $y &> /dev/null
+				fi	
+			fi
+			let "var+=1"
+		done
+	elif [ "$key" = "-" ]
+	then
+		linePos=$((cursorVert-2))
+		var=1
+		y=""
+
+		for val in $fulldir
+		do	
+			y=$y/$val
+			if [ $linePos = $var ]
+			then
+				if [ $cursorHor = 6 ]
+				then
+					chmod u+x $y &> /dev/null
+				elif [ $cursorHor = 14 ]
+				then
+					chmod g-x $y &> /dev/null
+				elif [ $cursorHor = 22 ]
+				then
+					chmod o-x $y &> /dev/null
+				elif [ $cursorHor = 4 ]
+				then
+					chmod u-w $y &> /dev/null
+				elif [ $cursorHor = 12 ]
+				then
+					chmod g-w $y &> /dev/null
+				elif [ $cursorHor = 20 ]
+				then
+					chmod o-w $y &> /dev/null
+				elif [ $cursorHor = 2 ]
+				then
+					chmod u-r $y &> /dev/null
+				elif [ $cursorHor = 10 ]
+				then
+					chmod g-r $y &> /dev/null
+				elif [ $cursorHor = 18 ]
+				then
+					chmod o-r $y &> /dev/null
+				fi	
+	
+			fi
+		let "var+=1"
+		done
+
+	fi 
+	else
+		echo "error: $1 is not a valid directory name"
+		exit 1
+	fi
+done
+#resets line wrapping
+tput smam
